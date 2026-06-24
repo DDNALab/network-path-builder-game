@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Path Builder: Network Design Game</title>
+<style>
+  :root {
+    --navy: #0f2a44;
+    --blue: #2f80ed;
+    --light-blue: #eaf4ff;
+    --green: #14a86b;
+    --orange: #f28c28;
+    --red: #d94a4a;
+    --gray: #eef2f6;
+    --dark-gray: #6b7785;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f7f9fc;
+    color: var(--navy);
+  }
+  header {
+    padding: 18px 24px;
+    background: white;
+    border-bottom: 1px solid #dfe7f1;
+  }
+  header h1 { margin: 0; font-size: 30px; }
+  header p { margin: 6px 0 0 0; font-size: 16px; color: #4d6278; }
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr 310px;
+    gap: 16px;
+    padding: 16px;
+  }
+  .panel {
+    background: white;
+    border: 1px solid #dfe7f1;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(15, 42, 68, 0.06);
+  }
+  .panel h2 { margin: 0 0 10px 0; font-size: 21px; }
+  .panel h3 { margin: 18px 0 8px 0; font-size: 14px; }
+  .small { font-size: 14px; line-height: 1.35; color: #4d6278; }
+  label { display: block; margin-top: 12px; font-weight: bold; }
+  select, button {
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid #ccd8e5;
+    padding: 10px 12px;
+  }
+  select { width: 100%; background: white; }
+  button {
+    cursor: pointer;
+    background: var(--blue);
+    color: white;
+    border: none;
+    font-weight: bold;
+    margin-top: 10px;
+    width: 100%;
+  }
+  button.secondary { background: #e8eef5; color: var(--navy); }
+  button.warning { background: var(--orange); }
+  button.danger { background: var(--red); }
+  button:hover { filter: brightness(0.95); }
+  .game-area {
+    background: white;
+    border: 1px solid #dfe7f1;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    min-height: 640px;
+    box-shadow: 0 2px 8px rgba(15, 42, 68, 0.06);
+  }
+  svg {
+    width: 100%;
+    height: 640px;
+    display: block;
+    background:
+      linear-gradient(#eef4fb 1px, transparent 1px),
+      linear-gradient(90deg, #eef4fb 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .edge {
+    stroke: var(--green);
+    stroke-width: 5;
+    fill: none;
+    marker-end: url(#arrow);
+  }
+  .edge:hover { stroke-width: 7; stroke: #0a7b4e; }
+  .edge.selected { stroke: #111; stroke-width: 8; }
+  .node { cursor: pointer; }
+  .node circle {
+    stroke: white;
+    stroke-width: 4;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+  }
+  .node text {
+    fill: white;
+    font-weight: bold;
+    font-size: 17px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+  }
+  .node.source circle { fill: var(--blue); }
+  .node.sink circle { fill: var(--red); }
+  .node.relay circle { fill: var(--orange); }
+  .node.selected circle { stroke: #111; stroke-width: 5; }
+  .stat-box {
+    border-radius: 14px;
+    background: var(--light-blue);
+    padding: 14px;
+    margin-top: 12px;
+  }
+  .budget-box {
+    border-radius: 14px;
+    background: #fff5df;
+    padding: 14px;
+    margin-top: 12px;
+    border-left: 6px solid var(--orange);
+  }
+  .big-number {
+    font-size: 58px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--green);
+  }
+  .budget-number {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--orange);
+  }
+  .path-list {
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid #dfe7f1;
+    border-radius: 12px;
+    padding: 10px;
+    background: #fbfdff;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+  }
+  .hint {
+    background: #fff5df;
+    border-left: 6px solid var(--orange);
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #634000;
+    margin-top: 12px;
+  }
+  .message {
+    min-height: 36px;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #f2f6fb;
+    color: #4d6278;
+    font-size: 14px;
+  }
+  .message.warn {
+    background: #ffe7e7;
+    color: #7a1f1f;
+    font-weight: bold;
+  }
+  .footer-note {
+    padding: 0 16px 16px 16px;
+    color: #66798e;
+    font-size: 13px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 4px 8px;
+    background: var(--gray);
+    border-radius: 999px;
+    margin: 3px 2px;
+    font-size: 13px;
+  }
+  @media (max-width: 1050px) {
+    .layout { grid-template-columns: 1fr; }
+    .game-area { min-height: 560px; }
+    svg { height: 560px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Path Builder: Network Design Game</h1>
+  <p>Draw arrows from the source to the target through relay nodes. Source cannot connect directly to Target. Link budget depends on the number of relay nodes.</p>
+</header>
+
+<div class="layout">
+  <section class="panel">
+    <h2>1. Set up</h2>
+    <p class="small">
+      The blue node is the <b>source</b>. The red node is the <b>target</b>.
+      Orange nodes are <b>relay nodes</b> that can pass flow along.
+    </p>
+
+    <label for="relayCount">Number of relay nodes</label>
+    <select id="relayCount">
+      <option value="2">2 relay nodes</option>
+      <option value="3" selected>3 relay nodes</option>
+      <option value="4">4 relay nodes</option>
+      <option value="5">5 relay nodes</option>
+    </select>
+
+    <button onclick="newGame()">New network</button>
+    <button class="secondary" onclick="clearEdges()">Clear arrows</button>
+    <button class="warning" onclick="autoExample()">Show example</button>
+    <button class="secondary" onclick="showBestDesign()">Show the best design</button>
+
+    <h3>2. How to draw arrows</h3>
+    <p class="small">
+      Click one node. Then click another node. An arrow will be drawn from the first node to the second node.
+    </p>
+
+    <div class="hint">
+      Rule: Source cannot connect directly to Target. Also, two nodes can have at most one link between them.
+    </div>
+
+    <h3>Vocabulary</h3>
+    <span class="pill">node = place</span>
+    <span class="pill">edge = arrow</span>
+    <span class="pill">path = route</span>
+    <span class="pill">source = start</span>
+    <span class="pill">target = end</span>
+  </section>
+
+  <main class="game-area">
+    <svg id="networkSvg" viewBox="0 0 900 640">
+      <defs>
+        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 0 L 5 2.5 L 0 5 z" fill="#14a86b"></path>
+        </marker>
+      </defs>
+      <g id="edgesLayer"></g>
+      <g id="nodesLayer"></g>
+    </svg>
+  </main>
+
+  <aside class="panel">
+    <h2>Results</h2>
+    <div class="stat-box">
+      <div class="small">Number of paths from source to target</div>
+      <div class="big-number" id="pathCount">0</div>
+      <div class="small" id="bestPossibleText">Best possible with this budget: 0</div>
+    </div>
+
+    <div class="budget-box">
+      <div class="small">Links used / link budget</div>
+      <div class="budget-number" id="linkBudget">0 / 0</div>
+      <div class="small" id="maxLinksText">Possible directed links: 0</div>
+    </div>
+
+    <div class="message" id="messageBox">Build a network and compare path counts.</div>
+
+    <h3>All paths</h3>
+    <div class="path-list" id="pathList">No path yet.</div>
+
+    <h3>Think about it</h3>
+    <p class="small">
+      Two networks can use the same number of nodes and links but have very different connectivity.
+    </p>
+    <p class="small">
+      More backup routes usually means the network is stronger if one arrow breaks.
+    </p>
+
+    <button class="danger" onclick="deleteSelectedEdge()">Delete selected arrow</button>
+    <button class="danger" onclick="removeRandomEdge()">Storm: break 1 arrow</button>
+    <button class="secondary" onclick="undoLastEdge()">Undo last arrow</button>
+  </aside>
+</div>
+
+<div class="footer-note">
+  Classroom prompt: Ask teams to use the same relay-node count and link budget. Which structure creates the most paths? Which structure survives a broken link best?
+</div>
+
+<script>
+  const nodesLayer = document.getElementById("nodesLayer");
+  const edgesLayer = document.getElementById("edgesLayer");
+  const pathCountEl = document.getElementById("pathCount");
+  const pathListEl = document.getElementById("pathList");
+  const bestPossibleTextEl = document.getElementById("bestPossibleText");
+  const linkBudgetEl = document.getElementById("linkBudget");
+  const maxLinksTextEl = document.getElementById("maxLinksText");
+  const messageBox = document.getElementById("messageBox");
+
+  let nodes = [];
+  let edges = [];
+  let selectedNode = null;
+  let selectedEdge = null;
+  let edgeHistory = [];
+  let possibleLinkCount = 0;
+  let linkBudget = 0;
+  let currentRelayCount = 3;
+
+  // Exact best scores for this beginner version with max links = min(10, floor(50%)).
+  // Relay nodes: 2, 3, 4, 5.
+  const linkBudgetByRelay = {
+    2: 4,
+    3: 6,
+    4: 8,
+    5: 10
+  };
+
+  const bestPossiblePaths = {
+    2: 2,
+    3: 4,
+    4: 7,
+    5: 10
+  };
+
+  // One best-scoring design for each relay-node count under the link-budget rule.
+  // Source is not allowed to connect directly to Target.
+  // Two nodes can have at most one link between them.
+  // Each entry is a list of directed arrows [from, to].
+  const bestDesigns = {
+    2: [
+      ["S", "R1"], ["S", "R2"],
+      ["R1", "R2"], ["R2", "T"]
+    ],
+    3: [
+      ["S", "R1"], ["S", "R2"],
+      ["R1", "R2"], ["R2", "R3"],
+      ["R2", "T"], ["R3", "T"]
+    ],
+    4: [
+      ["S", "R1"], ["S", "R2"], ["S", "R3"],
+      ["R1", "R2"], ["R1", "R3"],
+      ["R2", "R3"],
+      ["R3", "R4"], ["R4", "T"]
+    ],
+    5: [
+      ["S", "R1"], ["S", "R2"],
+      ["R1", "R2"],
+      ["R2", "R3"], ["R2", "R5"],
+      ["R3", "R4"], ["R3", "T"],
+      ["R5", "R3"], ["R5", "R4"],
+      ["R4", "T"]
+    ]
+  };
+
+  function eligibleLinkCount(relayCount) {
+    // Beginner-game definition:
+    // Source can send only to relay nodes, not directly to Target: relayCount.
+    // Each relay can send to other relays and the target, but not to itself or the source: relayCount.
+    // Target does not send arrows.
+    return relayCount + relayCount * relayCount;
+  }
+
+  function setMessage(text, isWarn=false) {
+    messageBox.textContent = text;
+    messageBox.className = isWarn ? "message warn" : "message";
+  }
+
+  function updateBudgetDisplay() {
+    linkBudgetEl.textContent = `${edges.length} / ${linkBudget}`;
+    maxLinksTextEl.textContent = `Possible directed links: ${possibleLinkCount}; fixed budget for ${currentRelayCount} relay nodes = ${linkBudget}`;
+    bestPossibleTextEl.textContent = `Best possible with this budget: ${bestPossiblePaths[currentRelayCount]}`;
+  }
+
+  function newGame() {
+    const n = parseInt(document.getElementById("relayCount").value, 10);
+    currentRelayCount = n;
+    selectedNode = null;
+    selectedEdge = null;
+    edges = [];
+    edgeHistory = [];
+    possibleLinkCount = eligibleLinkCount(n);
+    linkBudget = linkBudgetByRelay[n];
+
+    nodes = [
+      { id: "S", label: "Source", type: "source", x: 105, y: 320 },
+      { id: "T", label: "Target", type: "sink", x: 795, y: 320 }
+    ];
+
+    const positions = {
+      2: [[360, 240], [360, 400]],
+      3: [[320, 180], [420, 320], [320, 460]],
+      4: [[300, 170], [470, 220], [470, 420], [300, 470]],
+      5: [[290, 150], [470, 190], [400, 320], [470, 450], [290, 490]]
+    };
+
+    positions[n].forEach((p, i) => {
+      nodes.push({ id: "R" + (i + 1), label: "R" + (i + 1), type: "relay", x: p[0], y: p[1] });
+    });
+
+    setMessage("Build a network and compare path counts.");
+    render();
+  }
+
+  function render() {
+    edgesLayer.innerHTML = "";
+    nodesLayer.innerHTML = "";
+
+    edges.forEach((e, index) => {
+      const from = nodes.find(n => n.id === e.from);
+      const to = nodes.find(n => n.id === e.to);
+      if (!from || !to) return;
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const rFrom = (from.type === "source" || from.type === "sink") ? 46 : 34;
+      const rTo = (to.type === "source" || to.type === "sink") ? 46 : 34;
+      const x1 = from.x + (dx / len) * rFrom;
+      const y1 = from.y + (dy / len) * rFrom;
+      const x2 = to.x - (dx / len) * rTo;
+      const y2 = to.y - (dy / len) * rTo;
+
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.setAttribute("class", "edge" + (selectedEdge === index ? " selected" : ""));
+      line.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectedNode = null;
+        selectedEdge = (selectedEdge === index) ? null : index;
+        setMessage(selectedEdge === null ? "Arrow unselected." : "Arrow selected. Click Delete selected arrow to remove it.");
+        render();
+      });
+      edgesLayer.appendChild(line);
+    });
+
+    nodes.forEach(n => {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("class", `node ${n.type}` + (selectedNode === n.id ? " selected" : ""));
+      group.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+      group.addEventListener("click", () => handleNodeClick(n.id));
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const radius = (n.type === "source" || n.type === "sink") ? 46 : 34;
+      circle.setAttribute("r", radius);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.textContent = n.label;
+
+      group.appendChild(circle);
+      group.appendChild(text);
+      nodesLayer.appendChild(group);
+    });
+
+    calculatePaths();
+    updateBudgetDisplay();
+  }
+
+  function handleNodeClick(nodeId) {
+    selectedEdge = null;
+    if (selectedNode === null) {
+      selectedNode = nodeId;
+    } else if (selectedNode === nodeId) {
+      selectedNode = null;
+    } else {
+      addEdge(selectedNode, nodeId);
+      selectedNode = null;
+    }
+    render();
+  }
+
+  function addEdge(from, to) {
+    if (from === "T") {
+      setMessage("The target is the final destination, so it cannot send arrows.", true);
+      return false;
+    }
+    if (from === "S" && to === "T") {
+      setMessage("Source cannot connect directly to Target. Also, two nodes can have at most one link between them. Use relay nodes.", true);
+      return false;
+    }
+    if (to === "S") {
+      setMessage("The source is the start, so arrows cannot point into it.", true);
+      return false;
+    }
+    if (from === to) {
+      setMessage("A node cannot connect to itself.", true);
+      return false;
+    }
+
+    const exists = edges.some(e => e.from === from && e.to === to);
+    if (exists) {
+      setMessage("That arrow already exists.", true);
+      return false;
+    }
+
+    const oppositeExists = edges.some(e => e.from === to && e.to === from);
+    if (oppositeExists) {
+      setMessage("Those two nodes already have a link. You cannot add the opposite arrow.", true);
+      return false;
+    }
+
+    if (edges.length >= linkBudget) {
+      setMessage(`Link budget reached: ${linkBudget} arrows. Remove one arrow or start a new network.`, true);
+      return false;
+    }
+
+    edges.push({ from, to });
+    selectedEdge = null;
+    edgeHistory.push({ from, to });
+    setMessage("Arrow added. Try to increase the number of paths.");
+    return true;
+  }
+
+  function clearEdges() {
+    edges = [];
+    edgeHistory = [];
+    selectedNode = null;
+    selectedEdge = null;
+    setMessage("All arrows cleared.");
+    render();
+  }
+
+  function undoLastEdge() {
+    const last = edgeHistory.pop();
+    if (!last) return;
+    const idx = edges.findIndex(e => e.from === last.from && e.to === last.to);
+    if (idx >= 0) edges.splice(idx, 1);
+    selectedNode = null;
+    selectedEdge = null;
+    setMessage("Last arrow undone.");
+    render();
+  }
+
+  function deleteSelectedEdge() {
+    if (selectedEdge === null || selectedEdge < 0 || selectedEdge >= edges.length) {
+      setMessage("Click an arrow first, then click Delete selected arrow.", true);
+      return;
+    }
+    edges.splice(selectedEdge, 1);
+    selectedEdge = null;
+    selectedNode = null;
+    setMessage("Selected arrow deleted. You can now place a new arrow somewhere else.");
+    render();
+  }
+
+  function removeRandomEdge() {
+    if (edges.length === 0) return;
+    const idx = Math.floor(Math.random() * edges.length);
+    edges.splice(idx, 1);
+    selectedNode = null;
+    selectedEdge = null;
+    setMessage("Storm broke one arrow. Did your network still have backup paths?", true);
+    render();
+  }
+
+  function calculatePaths() {
+    const adj = {};
+    nodes.forEach(n => adj[n.id] = []);
+    edges.forEach(e => adj[e.from].push(e.to));
+
+    const allPaths = [];
+    const maxPathsToShow = 300;
+
+    function dfs(current, visited, path) {
+      if (current === "T") {
+        allPaths.push([...path]);
+        return;
+      }
+      if (allPaths.length >= maxPathsToShow) return;
+
+      for (const next of adj[current] || []) {
+        if (!visited.has(next)) {
+          visited.add(next);
+          path.push(next);
+          dfs(next, visited, path);
+          path.pop();
+          visited.delete(next);
+        }
+      }
+    }
+
+    dfs("S", new Set(["S"]), ["S"]);
+
+    pathCountEl.textContent = allPaths.length >= maxPathsToShow ? `${maxPathsToShow}+` : allPaths.length;
+
+    if (allPaths.length === 0) {
+      pathListEl.textContent = "No path yet.";
+    } else {
+      pathListEl.innerHTML = allPaths
+        .slice(0, maxPathsToShow)
+        .map((p, i) => `${i + 1}. ${p.join(" → ")}`)
+        .join("<br>");
+    }
+  }
+
+  function showBestDesign() {
+    const design = bestDesigns[currentRelayCount];
+    if (!design) {
+      setMessage("No best design is stored for this relay-node count.", true);
+      return;
+    }
+
+    const seenPairs = new Set();
+    edges = [];
+    for (const pair of design) {
+      if (pair[0] === "S" && pair[1] === "T") continue;
+      const key = [pair[0], pair[1]].sort().join("--");
+      if (seenPairs.has(key)) continue;
+      seenPairs.add(key);
+      edges.push({ from: pair[0], to: pair[1] });
+    }
+    edgeHistory = [...edges];
+    selectedNode = null;
+    selectedEdge = null;
+    setMessage(`Best design loaded: ${bestPossiblePaths[currentRelayCount]} paths using ${edges.length} links.`);
+    render();
+  }
+
+  function autoExample() {
+    edges = [];
+    edgeHistory = [];
+    selectedNode = null;
+    selectedEdge = null;
+    const relayIds = nodes.filter(n => n.type === "relay").map(n => n.id);
+
+    function tryAdd(from, to) {
+      if (edges.length < linkBudget) addEdge(from, to);
+    }
+
+    // A layered structure that creates multiple paths while respecting the 50% link budget.
+    relayIds.forEach((id, i) => {
+      if (i < 2) tryAdd("S", id);
+    });
+
+    for (let i = 0; i < relayIds.length; i++) {
+      if (i + 1 < relayIds.length) tryAdd(relayIds[i], relayIds[i + 1]);
+      if (i + 2 < relayIds.length) tryAdd(relayIds[i], relayIds[i + 2]);
+    }
+
+    relayIds.slice(-2).forEach(id => tryAdd(id, "T"));
+    if (edges.length < linkBudget && relayIds.length > 0) tryAdd("S", relayIds[relayIds.length - 1]);
+    if (edges.length < linkBudget && relayIds.length > 1) tryAdd(relayIds[0], "T");
+
+    setMessage("Example loaded. You can edit it.");
+    render();
+  }
+
+  newGame();
+</script>
+</body>
+</html>
