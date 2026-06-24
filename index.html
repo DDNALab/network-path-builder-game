@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Path Builder: Network Design Game</title>
+<title> Network Design Game</title>
 <style>
   :root {
     --navy: #0f2a44;
@@ -189,7 +189,7 @@
 </head>
 <body>
 <header>
-  <h1>Path Builder: Network Design Game</h1>
+  <h1> Network Design Game</h1>
   <p>Draw arrows from the source to the target through relay nodes. Source cannot connect directly to Target. Link budget depends on the number of relay nodes.</p>
 </header>
 
@@ -307,7 +307,7 @@
   const bestPossiblePaths = {
     2: 2,
     3: 4,
-    4: 7,
+    4: 6,
     5: 10
   };
 
@@ -326,10 +326,11 @@
       ["R2", "T"], ["R3", "T"]
     ],
     4: [
-      ["S", "R1"], ["S", "R2"], ["S", "R3"],
-      ["R1", "R2"], ["R1", "R3"],
-      ["R2", "R3"],
-      ["R3", "R4"], ["R4", "T"]
+      ["S", "R3"], ["S", "R4"],
+      ["R3", "R1"], ["R3", "R4"],
+      ["R1", "R4"],
+      ["R4", "R2"], ["R4", "T"],
+      ["R2", "T"]
     ],
     5: [
       ["S", "R1"], ["S", "R2"],
@@ -379,7 +380,7 @@
       2: [[360, 240], [360, 400]],
       3: [[320, 180], [420, 320], [320, 460]],
       4: [[300, 170], [470, 220], [470, 420], [300, 470]],
-      5: [[290, 150], [470, 190], [400, 320], [470, 450], [290, 490]]
+      5: [[290, 150], [598, 190], [400, 320], [598, 450], [290, 490]]
     };
 
     positions[n].forEach((p, i) => {
