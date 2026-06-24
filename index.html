@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title> Network Design Game</title>
+<title>Path Builder: Network Design Game</title>
 <style>
   :root {
     --navy: #0f2a44;
@@ -79,6 +79,7 @@
     width: 100%;
     height: 640px;
     display: block;
+    touch-action: none;
     background:
       linear-gradient(#eef4fb 1px, transparent 1px),
       linear-gradient(90deg, #eef4fb 1px, transparent 1px);
@@ -92,7 +93,8 @@
   }
   .edge:hover { stroke-width: 7; stroke: #0a7b4e; }
   .edge.selected { stroke: #111; stroke-width: 8; }
-  .node { cursor: pointer; }
+  .node { cursor: grab; }
+  .node:active { cursor: grabbing; }
   .node circle {
     stroke: white;
     stroke-width: 4;
@@ -189,7 +191,7 @@
 </head>
 <body>
 <header>
-  <h1> Network Design Game</h1>
+  <h1>Path Builder: Network Design Game</h1>
   <p>Draw arrows from the source to the target through relay nodes. Source cannot connect directly to Target. Link budget depends on the number of relay nodes.</p>
 </header>
 
@@ -295,6 +297,12 @@
   let linkBudget = 0;
   let currentRelayCount = 3;
 
+  let draggingNodeId = null;
+  let dragPointerId = null;
+  let dragStart = null;
+  let didDrag = false;
+  const dragThreshold = 5;
+
   // Exact best scores for this beginner version with max links = min(10, floor(50%)).
   // Relay nodes: 2, 3, 4, 5.
   const linkBudgetByRelay = {
@@ -359,6 +367,88 @@
     linkBudgetEl.textContent = `${edges.length} / ${linkBudget}`;
     maxLinksTextEl.textContent = `Possible directed links: ${possibleLinkCount}; fixed budget for ${currentRelayCount} relay nodes = ${linkBudget}`;
     bestPossibleTextEl.textContent = `Best possible with this budget: ${bestPossiblePaths[currentRelayCount]}`;
+  }
+
+  function getSvgPoint(event) {
+    const svg = document.getElementById("networkSvg");
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function nodeRadius(node) {
+    return (node.type === "source" || node.type === "sink") ? 46 : 34;
+  }
+
+  function moveNodeTo(node, x, y) {
+    const radius = nodeRadius(node);
+    node.x = Math.max(radius, Math.min(900 - radius, x));
+    node.y = Math.max(radius, Math.min(640 - radius, y));
+  }
+
+  function startNodeDrag(event, nodeId) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const svgP = getSvgPoint(event);
+    draggingNodeId = nodeId;
+    dragPointerId = event.pointerId;
+    didDrag = false;
+    dragStart = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offsetX: svgP.x - node.x,
+      offsetY: svgP.y - node.y
+    };
+
+    selectedEdge = null;
+  }
+
+  function handleNodeDrag(event) {
+    if (draggingNodeId === null || event.pointerId !== dragPointerId || !dragStart) return;
+    event.preventDefault();
+
+    const dxScreen = event.clientX - dragStart.clientX;
+    const dyScreen = event.clientY - dragStart.clientY;
+    if (Math.sqrt(dxScreen * dxScreen + dyScreen * dyScreen) > dragThreshold) {
+      didDrag = true;
+    }
+
+    if (!didDrag) return;
+
+    const node = nodes.find(n => n.id === draggingNodeId);
+    if (!node) return;
+
+    const svgP = getSvgPoint(event);
+    moveNodeTo(node, svgP.x - dragStart.offsetX, svgP.y - dragStart.offsetY);
+    selectedNode = null;
+    render();
+  }
+
+  function finishNodeDrag(event) {
+    if (draggingNodeId === null || event.pointerId !== dragPointerId) return;
+    event.preventDefault();
+
+    const nodeId = draggingNodeId;
+    const wasDrag = didDrag;
+
+    draggingNodeId = null;
+    dragPointerId = null;
+    dragStart = null;
+    didDrag = false;
+
+    if (wasDrag) {
+      selectedNode = null;
+      selectedEdge = null;
+      setMessage("Node moved. Connected arrows moved with it.");
+      render();
+    } else {
+      handleNodeClick(nodeId);
+    }
   }
 
   function newGame() {
@@ -430,7 +520,7 @@
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
       group.setAttribute("class", `node ${n.type}` + (selectedNode === n.id ? " selected" : ""));
       group.setAttribute("transform", `translate(${n.x}, ${n.y})`);
-      group.addEventListener("click", () => handleNodeClick(n.id));
+      group.addEventListener("pointerdown", (event) => startNodeDrag(event, n.id));
 
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       const radius = (n.type === "source" || n.type === "sink") ? 46 : 34;
@@ -636,6 +726,10 @@
     setMessage("Example loaded. You can edit it.");
     render();
   }
+
+  window.addEventListener("pointermove", handleNodeDrag);
+  window.addEventListener("pointerup", finishNodeDrag);
+  window.addEventListener("pointercancel", finishNodeDrag);
 
   newGame();
 </script>
